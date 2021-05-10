@@ -8,12 +8,13 @@ def scan_host_ports(sock: typing.Tuple[str, int]):
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         result = s.connect_ex(sock)
-        if result == 0:
-            print("Port {} is open for {}".format(sock[1], sock[0]))
+        print("Port {} is {} for {}".format(sock[1], 'open' if result == 0 else 'closed', sock[0]))
 
 
 if __name__ == '__main__':
-    host_address = socket.gethostbyname(sys.argv[1])
-    host_port = int(sys.argv[2])
-    scan_host_ports((host_address, host_port))
-    pass
+    hosts_file_path = sys.argv[1]
+    with open(hosts_file_path, "r") as hosts_file:
+        hosts = json.load(hosts_file)
+        for host in hosts:
+            for port in host['ports']:
+                scan_host_ports((host['address'], port))
