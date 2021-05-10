@@ -1,8 +1,8 @@
-#Hosts discover prototype
+# Hosts discover prototype
 
 Модуль поиска хостов по сети
 
-##Использование
+## Использование
 ```shell
 python ./data.example.json
 ```
