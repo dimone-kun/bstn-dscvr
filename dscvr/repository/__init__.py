@@ -5,7 +5,7 @@ from ..domain import Host
 
 
 class IHostsRepository(ABC):
-    def find_by_address(self, address: str) -> typing.List[Host]:
+    def find_by_address(self, address: str) -> typing.Optional[Host]:
         raise NotImplementedError()
 
     def find_all(self) -> typing.List[Host]:

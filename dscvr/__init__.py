@@ -13,7 +13,7 @@ def __scan_host_port(sock: typing.Tuple[str, int], timeout: typing.Optional[int]
 
 
 def scan_hosts(
-        hosts: typing.List[typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]],
+        hosts: typing.Iterable[typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]],
         ports: typing.List[range],
         timeout: int = 4
 ):

@@ -2,7 +2,7 @@ import typing
 
 
 class Host:
-    def __init__(self, name: str, address: str, ports: typing.List[int]):
+    def __init__(self, address: str, ports: typing.List[int], name: typing.Optional[str] = None):
         self.__name = name
         self.__address = address
         self.__ports = ports
