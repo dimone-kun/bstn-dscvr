@@ -1,12 +1,7 @@
 import typing
-import typing_extensions
-import socket
-import sys
-import json
 import ipaddress
-import ping3
-
-Host = typing_extensions.TypedDict("Host", {"name": str, "address": str, "ports": typing.List[int]})
+import sys
+import dscvr
 
 
 def read_scan_ranges(range_arg: str) -> typing.List[range]:
@@ -53,27 +48,8 @@ def read_hosts(network_arg: str) -> typing.Set[typing.Union[ipaddress.IPv4Addres
     return result
 
 
-def scan_host_ports(sock: typing.Tuple[str, int], timeout: typing.Optional[int] = None):
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        if timeout:
-            s.settimeout(timeout)
-        result = s.connect_ex(sock)
-        print("Port {} is {} for {}".format(sock[1], 'open' if result == 0 else 'closed', sock[0]))
+hosts = read_hosts(sys.argv[1])
+ports = read_scan_ranges(sys.argv[2])
+timeout = None if len(sys.argv) < 4 else int(sys.argv[3])
 
-
-if __name__ == "__main__":
-    hosts = read_hosts(sys.argv[1])
-    ports = read_scan_ranges(sys.argv[2])
-    timeout = 4 if len(sys.argv) < 4 else int(sys.argv[3])
-
-    socket.setdefaulttimeout(timeout)
-
-    for host in hosts:
-        address = str(host)
-        delay = ping3.ping(dest_addr=address, timeout=timeout)
-        if delay is None:
-            print("Host {} is unavailable".format(address))
-            continue
-        for ports_range in ports:
-            for port in ports_range:
-                scan_host_ports((address, port))
+dscvr.scan_hosts(hosts, ports, timeout)
