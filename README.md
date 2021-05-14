@@ -4,17 +4,17 @@
 
 ## Использование
 ```shell
-python dscvr 192.168.0.1,192.168.1.0/255.255.255,192.168.2.0/24 80:83,8080
+python dscvr 192.168.1.2,192.168.1.1,192.168.1.105 80:83,8080
 ```
 
-В результате в консоль выведется хосты, к которым не удалось получить доступ и результаты проверки
-портов на доступных хостах:
+В результате в консоль выведется сравнение найденных хостов и их портов с зарегистрированными
+(данные для сравнения берутся из `data.example.json`):
 
 ```text
-Port 80 is open for 192.168.1.1
-Port 81 is closed for 192.168.1.1
-Port 82 is closed for 192.168.1.1
-Port 83 is closed for 192.168.1.1
-Port 8080 is closed for 192.168.1.1
-Host 192.168.1.2 is unavailable
+Following expected ports are not found for host "Test host 1" (192.168.1.1): {8080, 422}
+Additional port found for host "Test host 1" (192.168.1.1): {80}
+New host found:
+	None (192.168.1.105:[])
+Host not found:
+	Test host 2 (192.168.1.2:[80, 422, 9090])
 ```

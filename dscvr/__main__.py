@@ -51,4 +51,5 @@ def read_hosts(network_arg: str) -> typing.Set[typing.Union[ipaddress.IPv4Addres
 hosts = read_hosts(sys.argv[1])
 ports = read_scan_ranges(sys.argv[2])
 
-dscvr.scan_hosts(hosts, ports, int(sys.argv[3])) if len(sys.argv) > 3 else dscvr.scan_hosts(hosts, ports)
+found_hosts = dscvr.scan_hosts(hosts, ports, int(sys.argv[3])) if len(sys.argv) > 3 else dscvr.scan_hosts(hosts, ports)
+dscvr.assert_hosts(found_hosts)
