@@ -20,4 +20,4 @@ class Host:
         return self.__ports
 
     def __repr__(self) -> str:
-        return "{}: {}@{}".format(self.name, self.ports, self.address)
+        return "{} ({}:{})".format(self.name, self.address, self.ports)
