@@ -2,8 +2,12 @@ import typing
 import socket
 import ipaddress
 import ping3
+import logging
 from .domain import Host
 from .repository import HostsRepository as repository
+
+
+logger = logging.getLogger(__name__)
 
 
 def __scan_host_port(sock: typing.Tuple[str, int], timeout: typing.Optional[int] = None) -> bool:
@@ -11,7 +15,9 @@ def __scan_host_port(sock: typing.Tuple[str, int], timeout: typing.Optional[int]
         if timeout:
             s.settimeout(timeout)
         result = s.connect_ex(sock)
-        return result == 0
+        result = result == 0
+        logger.debug("%s: port %i is %s", sock[0], sock[1], "open" if result else "closed")
+        return result
 
 
 def scan_hosts(
@@ -19,18 +25,23 @@ def scan_hosts(
         ports: typing.List[range],
         timeout: int = 4
 ) -> typing.List[Host]:
+    logger.debug("Started host scanning; timeout is %i", timeout)
     socket.setdefaulttimeout(timeout)
 
     result = []
     for host in hosts:
         address = str(host)
+        logger.debug("Scanning %s address", address)
         delay = ping3.ping(dest_addr=address, timeout=timeout)
         if delay is None:
+            logger.debug("%s: no ping response", address)
             continue
+        logger.debug("%s: got ping response", address)
         host_ports = []
         for ports_range in ports:
             host_ports.extend(filter(lambda port: __scan_host_port((address, port)), ports_range))
         result.append(Host(address, host_ports))
+    logger.info("Port scanning is finished. %i hosts found", len(result))
     return result
 
 

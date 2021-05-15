@@ -2,6 +2,7 @@ import typing
 import ipaddress
 import sys
 import dscvr
+import logging
 
 
 def read_scan_ranges(range_arg: str) -> typing.List[range]:
@@ -47,6 +48,8 @@ def read_hosts(network_arg: str) -> typing.Set[typing.Union[ipaddress.IPv4Addres
             result.add(ipaddress.ip_address(network))
     return result
 
+
+logging.basicConfig(format="%(name)s %(levelname)s %(asctime)s: %(message)s", level=logging.DEBUG)
 
 hosts = read_hosts(sys.argv[1])
 ports = read_scan_ranges(sys.argv[2])

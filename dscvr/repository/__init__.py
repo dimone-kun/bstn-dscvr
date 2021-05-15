@@ -1,4 +1,5 @@
 import typing
+import logging
 import json
 from abc import ABC
 from ..domain import Host
@@ -17,7 +18,9 @@ class IHostsRepository(ABC):
 
 class __HostsRepositoryJsonFileImpl(IHostsRepository):
     def __init__(self, json_file: str) -> None:
+        self.logger = logging.getLogger(__name__)
         with open(json_file, "r") as hosts_file:
+            self.logger.debug("Loading hosts data from %s", json_file)
             self.items = json.load(hosts_file, object_hook=lambda d: Host(**d))
 
     def find_all(self) -> typing.List[Host]:
