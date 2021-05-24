@@ -1,8 +1,8 @@
 import typing
 import ipaddress
 import sys
-import dscvr
 import logging
+from dscvr import DiscoveryService as discovery_service
 
 
 def read_scan_ranges(range_arg: str) -> typing.List[range]:
@@ -54,5 +54,5 @@ logging.basicConfig(format="%(name)s %(levelname)s %(asctime)s: %(message)s", le
 hosts = read_hosts(sys.argv[1])
 ports = read_scan_ranges(sys.argv[2])
 
-found_hosts = dscvr.scan_hosts(hosts, ports, int(sys.argv[3])) if len(sys.argv) > 3 else dscvr.scan_hosts(hosts, ports)
-dscvr.assert_hosts(found_hosts)
+found_hosts = discovery_service.scan_hosts(hosts, ports, int(sys.argv[3])) if len(sys.argv) > 3 else discovery_service.scan_hosts(hosts, ports)
+discovery_service.assert_hosts(found_hosts)
