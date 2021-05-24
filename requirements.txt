@@ -1,2 +1,3 @@
 typing_extensions
 ping3
+paramiko

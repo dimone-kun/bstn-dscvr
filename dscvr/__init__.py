@@ -1,1 +1,1 @@
-from .service import DiscoveryService
+from .service import DiscoveryService, UserDiscoveryService

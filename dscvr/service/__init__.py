@@ -3,6 +3,7 @@ import logging
 import ipaddress
 import socket
 import ping3
+import paramiko
 from abc import ABC
 from ..domain import Host
 from ..repository import IHostsRepository, HostsRepository
@@ -30,6 +31,26 @@ class IDiscoveryService(ABC):
         Сравнить список хостов с хранимыми данными
 
         :param hosts: проверяемый список хостов
+        """
+        raise NotImplementedError
+
+
+class IUserDiscoveryService(ABC):
+    def supports(self, host: Host) -> bool:
+        """
+        Поддерживает ли сервис указанный хост
+
+        :param host: проверяемый хост
+        :return: True - хост поддерживается для проверки, False - не поддерживается
+        """
+        raise NotImplementedError
+
+    def discover_users(self, host: Host) -> typing.Iterable[str]:
+        """
+        Найти пользователей на указанном хосте
+
+        :param host: проверяемый хост
+        :return: список логинов пользователей на указанном хосте
         """
         raise NotImplementedError
 
@@ -111,4 +132,21 @@ class DiscoveryServiceImpl(IDiscoveryService):
             print("Host not found:\n\t{}".format(host))
 
 
+class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.client = paramiko.SSHClient()
+        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    def supports(self, host: Host) -> bool:
+        return 'Linux' == host.platform and host.ssh_port is not None
+
+    def discover_users(self, host: Host) -> typing.Iterable[str]:
+        stdin, stdout, stderr = self.client.exec_command("cut -d: -f1 /etc/passwd")
+        result = stdout.read().decode()
+        return result.split('\n')
+
+
 DiscoveryService = DiscoveryServiceImpl(HostsRepository)  # type: IDiscoveryService
+UserDiscoveryService = [SshLinuxUserDiscoveryServiceImpl()]  # type: typing.Iterable[IUserDiscoveryService]

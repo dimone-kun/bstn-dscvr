@@ -33,4 +33,5 @@ class __HostsRepositoryJsonFileImpl(IHostsRepository):
         return list(filter(lambda i: i.address not in address, self.items))
 
 
-HostsRepository = __HostsRepositoryJsonFileImpl("./data.example.json")  # type: IHostsRepository
+json_source_file = "./data.example.json"
+HostsRepository = __HostsRepositoryJsonFileImpl(json_source_file)  # type: IHostsRepository
