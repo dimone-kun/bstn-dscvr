@@ -143,9 +143,15 @@ class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService):
         return 'Linux' == host.platform and host.ssh_port is not None
 
     def discover_users(self, host: Host) -> typing.Iterable[str]:
-        stdin, stdout, stderr = self.client.exec_command("cut -d: -f1 /etc/passwd")
-        result = stdout.read().decode()
-        return result.split('\n')
+        # TODO username, password = self.credential_service.ssh_credentials(host)
+        # self.client.connect(host.address, port=host.ssh_port, username = username, password = password)
+        self.client.connect(host.address, port=host.ssh_port)
+        try:
+            stdin, stdout, stderr = self.client.exec_command("cut -d: -f1 /etc/passwd")
+            result = stdout.read().decode()
+            return result.split('\n')
+        finally:
+            self.client.close()
 
 
 DiscoveryService = DiscoveryServiceImpl(HostsRepository)  # type: IDiscoveryService
