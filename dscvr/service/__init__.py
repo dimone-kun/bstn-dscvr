@@ -30,7 +30,7 @@ class IDiscoveryService(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def assert_hosts(self, hosts: typing.List[Host]) -> None:
+    def assert_hosts(self, hosts: typing.List[Host]) -> dict:
         """
         Сравнить список хостов с хранимыми данными
 
@@ -112,13 +112,17 @@ class _DiscoveryServiceImpl(IDiscoveryService):
         self.logger.info("Port scanning is finished. %i hosts found", len(result))
         return result
 
-    def __assert_ports(self, expected_host: Host, actual: typing.List[int]):
+    def __assert_ports(self, expected_host: Host, actual: typing.List[int]) -> dict:
+        result = self.__host_to_dict(expected_host)
+        result["ports"] = actual
+
         actual = set(actual)
         expected = set(expected_host.ports)
 
         ports_diff = expected - actual
 
         if ports_diff:
+            result["ports__-"] = list(ports_diff)
             print("Following expected ports are not found for host \"{}\" ({}): {}".format(
                 expected_host.name,
                 expected_host.address,
@@ -127,27 +131,42 @@ class _DiscoveryServiceImpl(IDiscoveryService):
 
         ports_diff = actual - expected
         if ports_diff:
+            result["ports__+"] = list(ports_diff)
             print("Additional port found for host \"{}\" ({}): {}".format(
                 expected_host.name,
                 expected_host.address,
                 ports_diff
             ))
-        pass
+        return result
 
-    def assert_hosts(self, hosts: typing.List[Host]):
+    def __host_to_dict(self, host: Host):
+        return {
+            "name": host.name,
+            "address": host.address,
+            "ports": host.ports
+        }
+
+    def assert_hosts(self, hosts: typing.List[Host]) -> dict:
         checked_addresses = []
+        result = {
+            "hosts": []
+        }
 
         for host in hosts:
             address = host.address
             checked_addresses.append(address)
             expected_host = self.hosts_repository.find_by_address(address)
+            host_dict = self.__host_to_dict(host)
             if expected_host:
-                self.__assert_ports(expected_host, host.ports)
+                result["hosts"].append(self.__assert_ports(expected_host, host.ports))
             else:
                 print("New host found:\n\t{}".format(host))
+                result.setdefault("hosts__+", []).append(host_dict)
 
         for host in self.hosts_repository.find_by_address_not_in(checked_addresses):
+            result.setdefault("hosts__-", []).append(self.__host_to_dict(host))
             print("Host not found:\n\t{}".format(host))
+        return result
 
 
 _SshService = type('SshService', (ABC,), {})
