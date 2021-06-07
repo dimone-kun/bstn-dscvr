@@ -4,12 +4,15 @@ import ipaddress
 import socket
 import ping3
 import paramiko
-from abc import ABC
+import json
+import inspect
+from abc import ABC, abstractmethod
 from ..domain import Host
 from ..repository import IHostsRepository, HostsRepository
 
 
 class IDiscoveryService(ABC):
+    @abstractmethod
     def scan_hosts(
             self,
             hosts: typing.Iterable[typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]],
@@ -26,6 +29,7 @@ class IDiscoveryService(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def assert_hosts(self, hosts: typing.List[Host]) -> None:
         """
         Сравнить список хостов с хранимыми данными
@@ -36,6 +40,7 @@ class IDiscoveryService(ABC):
 
 
 class IUserDiscoveryService(ABC):
+    @abstractmethod
     def supports(self, host: Host) -> bool:
         """
         Поддерживает ли сервис указанный хост
@@ -45,12 +50,25 @@ class IUserDiscoveryService(ABC):
         """
         raise NotImplementedError
 
+    @abstractmethod
     def discover_users(self, host: Host) -> typing.Iterable[str]:
         """
         Найти пользователей на указанном хосте
 
         :param host: проверяемый хост
         :return: список логинов пользователей на указанном хосте
+        """
+        raise NotImplementedError
+
+
+class ICredentialsService(ABC):
+    @abstractmethod
+    def get_credentials(self, service: typing.Union[typing.Type, object], host: Host) -> typing.Tuple[str, str]:
+        """
+        :param service: сервис, который запрашивает параметры аутентификации
+        :param host: хост, для которого необходимо получить параметры аутентификации
+        :return: пара username/password для указанного хоста
+        :raises Warning: не найдены параметры аутентификации для сервиса
         """
         raise NotImplementedError
 
@@ -132,20 +150,23 @@ class DiscoveryServiceImpl(IDiscoveryService):
             print("Host not found:\n\t{}".format(host))
 
 
-class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService):
+__SshService = type('SshService', (), {})
 
-    def __init__(self) -> None:
+
+class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService, __SshService):
+
+    def __init__(self, credentials_service: ICredentialsService) -> None:
         super().__init__()
         self.client = paramiko.SSHClient()
         self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.credentials_service = credentials_service
 
     def supports(self, host: Host) -> bool:
         return 'Linux' == host.platform and host.ssh_port is not None
 
     def discover_users(self, host: Host) -> typing.Iterable[str]:
-        # TODO username, password = self.credential_service.ssh_credentials(host)
-        # self.client.connect(host.address, port=host.ssh_port, username = username, password = password)
-        self.client.connect(host.address, port=host.ssh_port)
+        username, password = self.credentials_service.get_credentials(SshLinuxUserDiscoveryServiceImpl, host)
+        self.client.connect(host.address, port=host.ssh_port, username=username, password=password)
         try:
             stdin, stdout, stderr = self.client.exec_command("cut -d: -f1 /etc/passwd")
             result = stdout.read().decode()
@@ -154,5 +175,28 @@ class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService):
             self.client.close()
 
 
+class CredentialsServiceJsonFileImpl(ICredentialsService):
+    def __init__(self, json_file: str) -> None:
+        self.logger = logging.getLogger(__name__)
+        with open(json_file, "r") as credentials_file:
+            self.logger.debug("Loading credentials data from %s", json_file)
+            self.items = json.load(credentials_file)
+
+    def get_credentials(self, service: typing.Union[typing.Type, object], host: Host) -> typing.Tuple[str, str]:
+        if not inspect.isclass(service):
+            service = type(service)  # type: type
+
+        for cls in service.mro():
+            service_name = cls.__name__
+            if service_name in self.items and self.items[service_name][host.address]:
+                service_credentials = self.items[service_name][host.address]
+                return service_credentials['username'], service_credentials['password']
+
+        raise Warning("No credentials found for {} service".format(service.__name__))
+
+
+credentials_json = "./credentials.example.json"
+
 DiscoveryService = DiscoveryServiceImpl(HostsRepository)  # type: IDiscoveryService
-UserDiscoveryService = [SshLinuxUserDiscoveryServiceImpl()]  # type: typing.Iterable[IUserDiscoveryService]
+CredentialsService = CredentialsServiceJsonFileImpl(credentials_json)  # type: ICredentialsService
+UserDiscoveryService = [SshLinuxUserDiscoveryServiceImpl(CredentialsService)]  # type: typing.Iterable[IUserDiscoveryService]
