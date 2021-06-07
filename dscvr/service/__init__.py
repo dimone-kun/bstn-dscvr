@@ -63,11 +63,11 @@ class IUserDiscoveryService(ABC):
 
 class ICredentialsService(ABC):
     @abstractmethod
-    def get_credentials(self, service: typing.Union[typing.Type, object], host: Host) -> typing.Tuple[str, str]:
+    def get_credentials(self, service: typing.Union[typing.Type, object], host: Host) -> dict:
         """
         :param service: сервис, который запрашивает параметры аутентификации
         :param host: хост, для которого необходимо получить параметры аутентификации
-        :return: пара username/password для указанного хоста
+        :return: словарь аргументов для авторизации
         :raises Warning: не найдены параметры аутентификации для сервиса
         """
         raise NotImplementedError
@@ -155,18 +155,20 @@ __SshService = type('SshService', (), {})
 
 class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService, __SshService):
 
-    def __init__(self, credentials_service: ICredentialsService) -> None:
+    def __init__(self, credentials_service: ICredentialsService, ssh_client: paramiko.SSHClient = None) -> None:
         super().__init__()
-        self.client = paramiko.SSHClient()
-        self.client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        if not ssh_client:
+            ssh_client = paramiko.SSHClient()
+            ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.client = ssh_client
         self.credentials_service = credentials_service
 
     def supports(self, host: Host) -> bool:
         return 'Linux' == host.platform and host.ssh_port is not None
 
     def discover_users(self, host: Host) -> typing.Iterable[str]:
-        username, password = self.credentials_service.get_credentials(SshLinuxUserDiscoveryServiceImpl, host)
-        self.client.connect(host.address, port=host.ssh_port, username=username, password=password)
+        creds = self.credentials_service.get_credentials(SshLinuxUserDiscoveryServiceImpl, host)
+        self.client.connect(host.address, port=host.ssh_port, **creds)
         try:
             stdin, stdout, stderr = self.client.exec_command("cut -d: -f1 /etc/passwd")
             result = stdout.read().decode()
@@ -182,15 +184,14 @@ class CredentialsServiceJsonFileImpl(ICredentialsService):
             self.logger.debug("Loading credentials data from %s", json_file)
             self.items = json.load(credentials_file)
 
-    def get_credentials(self, service: typing.Union[typing.Type, object], host: Host) -> typing.Tuple[str, str]:
+    def get_credentials(self, service: typing.Union[typing.Type, object], host: Host) -> dict:
         if not inspect.isclass(service):
             service = type(service)  # type: type
 
         for cls in service.mro():
             service_name = cls.__name__
             if service_name in self.items and self.items[service_name][host.address]:
-                service_credentials = self.items[service_name][host.address]
-                return service_credentials['username'], service_credentials['password']
+                return self.items[service_name][host.address]
 
         raise Warning("No credentials found for {} service".format(service.__name__))
 
