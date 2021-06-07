@@ -73,7 +73,7 @@ class ICredentialsService(ABC):
         raise NotImplementedError
 
 
-class DiscoveryServiceImpl(IDiscoveryService):
+class _DiscoveryServiceImpl(IDiscoveryService):
     def __init__(self, hosts_repository: IHostsRepository) -> None:
         self.hosts_repository = hosts_repository
         self.logger = logging.getLogger(__name__)
@@ -150,10 +150,10 @@ class DiscoveryServiceImpl(IDiscoveryService):
             print("Host not found:\n\t{}".format(host))
 
 
-__SshService = type('SshService', (), {})
+_SshService = type('SshService', (ABC,), {})
 
 
-class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService, __SshService):
+class _SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService, _SshService):
 
     def __init__(self, credentials_service: ICredentialsService, ssh_client: paramiko.SSHClient = None) -> None:
         super().__init__()
@@ -167,7 +167,7 @@ class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService, __SshService):
         return 'Linux' == host.platform and host.ssh_port is not None
 
     def discover_users(self, host: Host) -> typing.Iterable[str]:
-        creds = self.credentials_service.get_credentials(SshLinuxUserDiscoveryServiceImpl, host)
+        creds = self.credentials_service.get_credentials(_SshLinuxUserDiscoveryServiceImpl, host)
         self.client.connect(host.address, port=host.ssh_port, **creds)
         try:
             stdin, stdout, stderr = self.client.exec_command("cut -d: -f1 /etc/passwd")
@@ -177,7 +177,7 @@ class SshLinuxUserDiscoveryServiceImpl(IUserDiscoveryService, __SshService):
             self.client.close()
 
 
-class CredentialsServiceJsonFileImpl(ICredentialsService):
+class _CredentialsServiceJsonFileImpl(ICredentialsService):
     def __init__(self, json_file: str) -> None:
         self.logger = logging.getLogger(__name__)
         with open(json_file, "r") as credentials_file:
@@ -198,6 +198,6 @@ class CredentialsServiceJsonFileImpl(ICredentialsService):
 
 credentials_json = "./credentials.example.json"
 
-DiscoveryService = DiscoveryServiceImpl(HostsRepository)  # type: IDiscoveryService
-CredentialsService = CredentialsServiceJsonFileImpl(credentials_json)  # type: ICredentialsService
-UserDiscoveryService = [SshLinuxUserDiscoveryServiceImpl(CredentialsService)]  # type: typing.Iterable[IUserDiscoveryService]
+DiscoveryService = _DiscoveryServiceImpl(HostsRepository)  # type: IDiscoveryService
+CredentialsService = _CredentialsServiceJsonFileImpl(credentials_json)  # type: ICredentialsService
+UserDiscoveryService = [_SshLinuxUserDiscoveryServiceImpl(CredentialsService)]  # type: typing.Iterable[IUserDiscoveryService]

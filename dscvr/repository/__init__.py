@@ -1,22 +1,25 @@
 import typing
 import logging
 import json
-from abc import ABC
+from abc import ABC, abstractmethod
 from ..domain import Host
 
 
 class IHostsRepository(ABC):
+    @abstractmethod
     def find_by_address(self, address: str) -> typing.Optional[Host]:
         raise NotImplementedError()
 
+    @abstractmethod
     def find_by_address_not_in(self, address: typing.List[str]) -> typing.List[Host]:
         raise NotImplementedError()
 
+    @abstractmethod
     def find_all(self) -> typing.List[Host]:
         raise NotImplementedError()
 
 
-class __HostsRepositoryJsonFileImpl(IHostsRepository):
+class _HostsRepositoryJsonFileImpl(IHostsRepository):
     def __init__(self, json_file: str) -> None:
         self.logger = logging.getLogger(__name__)
         with open(json_file, "r") as hosts_file:
@@ -34,4 +37,4 @@ class __HostsRepositoryJsonFileImpl(IHostsRepository):
 
 
 json_source_file = "./data.example.json"
-HostsRepository = __HostsRepositoryJsonFileImpl(json_source_file)  # type: IHostsRepository
+HostsRepository = _HostsRepositoryJsonFileImpl(json_source_file)  # type: IHostsRepository
