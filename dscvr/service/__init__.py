@@ -2,6 +2,7 @@ import typing
 import logging
 import ipaddress
 import socket
+import asyncio
 import ping3
 import paramiko
 import json
@@ -13,7 +14,7 @@ from ..repository import IHostsRepository, HostsRepository
 
 class IDiscoveryService(ABC):
     @abstractmethod
-    def scan_hosts(
+    async def scan_hosts(
             self,
             hosts: typing.Iterable[typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]],
             ports: typing.List[range],
@@ -78,16 +79,18 @@ class _DiscoveryServiceImpl(IDiscoveryService):
         self.hosts_repository = hosts_repository
         self.logger = logging.getLogger(__name__)
 
-    def __scan_host_port(self, sock: typing.Tuple[str, int], timeout: typing.Optional[int] = None) -> bool:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if timeout:
-                s.settimeout(timeout)
-            result = s.connect_ex(sock)
-            result = result == 0
-            self.logger.debug("%s: port %i is %s", sock[0], sock[1], "open" if result else "closed")
-            return result
+    async def __scan_host_port(self, sock: typing.Tuple[str, int], timeout: typing.Optional[int] = None) -> bool:
+        fut = asyncio.open_connection(sock[0], sock[1])
+        try:
+            client_reader, client_writer = await asyncio.wait_for(fut, timeout)
+            self.logger.debug("%s: port %i is open", sock[0], sock[1])
+            client_writer.close()
+            return True
+        except (asyncio.TimeoutError, ConnectionRefusedError):
+            self.logger.debug("%s: port %i is closed", sock[0], sock[1])
+            return False
 
-    def scan_hosts(
+    async def scan_hosts(
             self,
             hosts: typing.Iterable[typing.Union[ipaddress.IPv4Address, ipaddress.IPv6Address]],
             ports: typing.List[range],
@@ -95,7 +98,6 @@ class _DiscoveryServiceImpl(IDiscoveryService):
     ) -> typing.List[Host]:
         self.logger.debug("Started host scanning; timeout is %i", timeout)
         socket.setdefaulttimeout(timeout)
-
         result = []
         for host in hosts:
             address = str(host)
@@ -107,7 +109,9 @@ class _DiscoveryServiceImpl(IDiscoveryService):
             self.logger.debug("%s: got ping response", address)
             host_ports = []
             for ports_range in ports:
-                host_ports.extend(filter(lambda port: self.__scan_host_port((address, port)), ports_range))
+                for port in ports_range:
+                    if await self.__scan_host_port((address, port)):
+                        host_ports.append(port)
             result.append(Host(address, host_ports))
         self.logger.info("Port scanning is finished. %i hosts found", len(result))
         return result

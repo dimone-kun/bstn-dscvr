@@ -2,6 +2,7 @@ import typing
 import ipaddress
 import sys
 import logging
+import asyncio
 import json
 from dscvr import DiscoveryService as discovery_service
 
@@ -50,11 +51,17 @@ def read_hosts(network_arg: str) -> typing.Set[typing.Union[ipaddress.IPv4Addres
     return result
 
 
+async def main():
+    found_hosts = await discovery_service.scan_hosts(hosts, ports, int(sys.argv[3])) if len(sys.argv) > 3 else await discovery_service.scan_hosts(hosts, ports)
+    diff = discovery_service.assert_hosts(found_hosts)
+    print(json.dumps(diff, indent=2))
+
+
 logging.basicConfig(format="%(name)s %(levelname)s %(asctime)s: %(message)s", level=logging.DEBUG)
 
 hosts = read_hosts(sys.argv[1])
 ports = read_scan_ranges(sys.argv[2])
 
-found_hosts = discovery_service.scan_hosts(hosts, ports, int(sys.argv[3])) if len(sys.argv) > 3 else discovery_service.scan_hosts(hosts, ports)
-diff = discovery_service.assert_hosts(found_hosts)
-print(json.dumps(diff, indent=2))
+loop = asyncio.get_event_loop()
+loop.run_until_complete(main())
+loop.close()
